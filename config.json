@@ -1,14 +1,24 @@
 {
-    "servers": [
+    "lb_port": 3333,
+    "lb_algo": "rr",
+    "be_servers": [
         {
             "name": "Server1",
             "host": "127.0.0.1",
-            "port": "5555"
+            "port": 5555,
+            "priority": 2
         },
         {
             "name": "Server2",
             "host": "127.0.0.1",
-            "port": "6666"
+            "port": 6666,
+            "priority": 4
+        },
+        {
+            "name": "Server3",
+            "host": "127.0.0.1",
+            "port": 7777,
+            "priority": 8
         }
     ]
 }
