@@ -1,10 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
-	"net/url"
-	"os"
 )
 
 type RoundRobinScheduler struct {
@@ -21,18 +18,8 @@ func NewRoundRobinScheduler(servers []Server) *RoundRobinScheduler {
 
 func (S *RoundRobinScheduler) Delegate(r *http.Request) *http.Response {
 	num := (S.Count) % len(S.Servers)
+	server := &S.Servers[num]
 	S.Count++
-	r.Host = fmt.Sprintf("%s:%d", S.Servers[num].Host, S.Servers[num].Port)
-	u, err := url.Parse(fmt.Sprintf("http://%s%s", r.Host, r.RequestURI))
-	if err != nil {
-		panic(err)
-	}
-	r.URL = u
-	r.RequestURI = ""
-	res, err := http.DefaultClient.Do(r)
-	if err != nil {
-		fmt.Printf("client: error making http request: %s\n", err)
-		os.Exit(1)
-	}
+	res := SendRequest(server, r)
 	return res
 }

@@ -1,11 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
 	"net/http"
-	"net/url"
-	"os"
 )
 
 type RandomScheduler struct {
@@ -20,17 +17,7 @@ func NewRandomScheduler(servers []Server) *RandomScheduler {
 
 func (S *RandomScheduler) Delegate(r *http.Request) *http.Response {
 	num := rand.Int() % len(S.Servers)
-	r.Host = fmt.Sprintf("%s:%d", S.Servers[num].Host, S.Servers[num].Port)
-	u, err := url.Parse(fmt.Sprintf("http://%s%s", r.Host, r.RequestURI))
-	if err != nil {
-		panic(err)
-	}
-	r.URL = u
-	r.RequestURI = ""
-	res, err := http.DefaultClient.Do(r)
-	if err != nil {
-		fmt.Printf("client: error making http request: %s\n", err)
-		os.Exit(1)
-	}
+	server := &S.Servers[num]
+	res := SendRequest(server, r)
 	return res
 }

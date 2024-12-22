@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"sync"
+	"time"
 )
 
 var Port int
 var Algorithm string
 var Servers []Server
 var DelegateMap = map[string]Scheduler{}
+var ServerMutex = sync.RWMutex{}
 
 func main() {
 	loadConfig()
@@ -19,11 +23,27 @@ func main() {
 	//var port int32 = 3333
 	http.HandleFunc("/", handleTraffic)
 
+	go runHealthLoop()
+
 	fmt.Println(fmt.Sprintf("Load Balancer listening on port [:%d]", Port))
 	err := http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", Port), nil)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
+	}
+}
+
+func runHealthLoop() {
+	for {
+		ServerMutex.Lock()
+		for _, server := range Servers {
+			_, err := http.Get(fmt.Sprintf("http://%s:%d/health", server.Host, server.Port))
+			if err != nil {
+				fmt.Println(server.Name + " is Offline")
+			}
+		}
+		ServerMutex.Unlock()
+		time.Sleep(30 * time.Second)
 	}
 }
 
@@ -59,6 +79,8 @@ func loadSchedulers() {
 }
 
 func handleTraffic(w http.ResponseWriter, r *http.Request) {
+	ServerMutex.Lock()
+	defer ServerMutex.Unlock()
 	res := DelegateMap[Algorithm].Delegate(r)
 	defer res.Body.Close()
 	bytes, err := io.ReadAll(res.Body)
@@ -68,6 +90,22 @@ func handleTraffic(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(res.StatusCode)
 	w.Write(bytes)
+}
+
+func SendRequest(server *Server, r *http.Request) *http.Response {
+	r.Host = fmt.Sprintf("%s:%d", server.Host, server.Port)
+	u, err := url.Parse(fmt.Sprintf("http://%s%s", r.Host, r.RequestURI))
+	if err != nil {
+		panic(err)
+	}
+	r.URL = u
+	r.RequestURI = ""
+	res, err := http.DefaultClient.Do(r)
+	if err != nil {
+		fmt.Printf("client: error making http request: %s\n", err)
+		os.Exit(1)
+	}
+	return res
 }
 
 type Server struct {
