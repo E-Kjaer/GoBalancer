@@ -6,18 +6,26 @@ import (
 )
 
 type RandomScheduler struct {
-	Servers []Server
+	Servers *[]Server
 }
 
-func NewRandomScheduler(servers []Server) *RandomScheduler {
+func NewRandomScheduler(servers *[]Server) *RandomScheduler {
 	scheduler := RandomScheduler{}
 	scheduler.Servers = servers
 	return &scheduler
 }
 
 func (S *RandomScheduler) Delegate(r *http.Request) *http.Response {
-	num := rand.Int() % len(S.Servers)
-	server := &S.Servers[num]
+	num := rand.Int() % len(*S.Servers)
+	server := &(*S.Servers)[num]
+	for !server.Active {
+		num = rand.Int() % len(*S.Servers)
+		server = &(*S.Servers)[num]
+	}
 	res := SendRequest(server, r)
 	return res
+}
+
+func (S *RandomScheduler) UpdateServers() {
+
 }

@@ -5,15 +5,15 @@ import (
 )
 
 type WeightedRoundRobinScheduler struct {
-	Servers     []Server
+	Servers     *[]Server
 	Count       int
 	WeightedMap map[int]*Server
 }
 
-func NewWeightedRoundRobinScheduler(servers []Server) *WeightedRoundRobinScheduler {
+func NewWeightedRoundRobinScheduler(servers *[]Server) *WeightedRoundRobinScheduler {
 	scheduler := WeightedRoundRobinScheduler{}
 	scheduler.Servers = servers
-	scheduler.WeightedMap = createWeightMap(servers)
+	scheduler.CreateWeightMap()
 	scheduler.Count = 0
 	return &scheduler
 }
@@ -22,18 +22,27 @@ func (S *WeightedRoundRobinScheduler) Delegate(r *http.Request) *http.Response {
 	num := (S.Count) % len(S.WeightedMap)
 	server := S.WeightedMap[num]
 	S.Count++
+	for !server.Active {
+		num = (S.Count) % len(S.WeightedMap)
+		server = S.WeightedMap[num]
+		S.Count++
+	}
 	res := SendRequest(server, r)
 	return res
 }
 
-func createWeightMap(servers []Server) map[int]*Server {
+func (S *WeightedRoundRobinScheduler) UpdateServers() {
+	S.CreateWeightMap()
+}
+
+func (S *WeightedRoundRobinScheduler) CreateWeightMap() {
 	count := 0
 	result := map[int]*Server{}
-	for index, element := range servers {
-		for _ = range servers[index].Priority {
+	for index, element := range *S.Servers {
+		for _ = range (*S.Servers)[index].Priority {
 			result[count] = &element
 			count++
 		}
 	}
-	return result
+	S.WeightedMap = result
 }

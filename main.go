@@ -20,7 +20,6 @@ var ServerMutex = sync.RWMutex{}
 func main() {
 	loadConfig()
 	loadSchedulers()
-	//var port int32 = 3333
 	http.HandleFunc("/", handleTraffic)
 
 	go runHealthLoop()
@@ -36,15 +35,28 @@ func main() {
 func runHealthLoop() {
 	for {
 		ServerMutex.Lock()
-		for _, server := range Servers {
-			_, err := http.Get(fmt.Sprintf("http://%s:%d/health", server.Host, server.Port))
+		for i, _ := range Servers {
+			_, err := http.Get(fmt.Sprintf("http://%s:%d/health", Servers[i].Host, Servers[i].Port))
 			if err != nil {
-				fmt.Println(server.Name + " is Offline")
+				fmt.Println(Servers[i].Name + " is Offline")
+				// Set server as inactive
+				Servers[i].Active = false
+			} else {
+				if Servers[i].Active == false {
+					fmt.Println(Servers[i].Name + " is now Online again")
+					Servers[i].Active = true
+				}
 			}
 		}
+		// Update schedulers
+		updateSchedulers()
 		ServerMutex.Unlock()
-		time.Sleep(30 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
+}
+
+func updateSchedulers() {
+	DelegateMap["wrr"].UpdateServers()
 }
 
 func loadConfig() {
@@ -67,15 +79,16 @@ func loadConfig() {
 			Host:     obj["host"].(string),
 			Port:     uint16(obj["port"].(float64)),
 			Priority: uint8(obj["priority"].(float64)),
+			Active:   true,
 		}
 		Servers = append(Servers, server)
 	}
 }
 
 func loadSchedulers() {
-	DelegateMap["rand"] = NewRandomScheduler(Servers)
-	DelegateMap["rr"] = NewRoundRobinScheduler(Servers)
-	DelegateMap["wrr"] = NewWeightedRoundRobinScheduler(Servers)
+	DelegateMap["rand"] = NewRandomScheduler(&Servers)
+	DelegateMap["rr"] = NewRoundRobinScheduler(&Servers)
+	DelegateMap["wrr"] = NewWeightedRoundRobinScheduler(&Servers)
 }
 
 func handleTraffic(w http.ResponseWriter, r *http.Request) {
@@ -113,8 +126,10 @@ type Server struct {
 	Host     string `json:"host"`
 	Port     uint16 `json:"port"`
 	Priority uint8  `json:"priority"`
+	Active   bool
 }
 
 type Scheduler interface {
 	Delegate(r *http.Request) *http.Response
+	UpdateServers()
 }

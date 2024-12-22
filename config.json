@@ -1,6 +1,6 @@
 {
     "lb_port": 3333,
-    "lb_algo": "rr",
+    "lb_algo": "wrr",
     "be_servers": [
         {
             "name": "Server1",
