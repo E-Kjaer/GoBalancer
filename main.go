@@ -14,6 +14,7 @@ import (
 var Port int
 var Algorithm string
 var Servers []Server
+var DBot DiscordBot
 var DelegateMap = map[string]Scheduler{}
 var ServerMutex = sync.RWMutex{}
 
@@ -39,11 +40,13 @@ func runHealthLoop() {
 			_, err := http.Get(fmt.Sprintf("http://%s:%d/health", Servers[i].Host, Servers[i].Port))
 			if err != nil {
 				fmt.Println(Servers[i].Name + " is Offline")
+				DBot.SendOfflineMessage(Servers[i].Name + " : Offline")
 				// Set server as inactive
 				Servers[i].Active = false
 			} else {
 				if Servers[i].Active == false {
 					fmt.Println(Servers[i].Name + " is now Online again")
+					DBot.SendOnlineMessage(Servers[i].Name + " : Online")
 					Servers[i].Active = true
 				}
 			}
@@ -70,6 +73,11 @@ func loadConfig() {
 	Port = int(j["lb_port"].(float64))
 
 	Algorithm = j["lb_algo"].(string)
+
+	dUrl := j["webhook"]
+	if dUrl != nil {
+		DBot = DiscordBot{Url: dUrl.(string)}
+	}
 
 	servers := j["be_servers"].([]interface{})
 	for _, element := range servers {
