@@ -15,13 +15,18 @@ func NewRandomScheduler(servers *[]Server) *RandomScheduler {
 	return &scheduler
 }
 
-func (S *RandomScheduler) Delegate(r *http.Request) *http.Response {
+func (S *RandomScheduler) changeServer() *Server {
 	num := rand.Int() % len(*S.Servers)
 	server := &(*S.Servers)[num]
 	for !server.Active {
 		num = rand.Int() % len(*S.Servers)
 		server = &(*S.Servers)[num]
 	}
+	return server
+}
+
+func (S *RandomScheduler) Delegate(r *http.Request) *http.Response {
+	server := S.changeServer()
 	res := SendRequest(server, r)
 	return res
 }

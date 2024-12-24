@@ -18,7 +18,7 @@ func NewWeightedRoundRobinScheduler(servers *[]Server) *WeightedRoundRobinSchedu
 	return &scheduler
 }
 
-func (S *WeightedRoundRobinScheduler) Delegate(r *http.Request) *http.Response {
+func (S *WeightedRoundRobinScheduler) changeServer() *Server {
 	num := (S.Count) % len(S.WeightedMap)
 	server := S.WeightedMap[num]
 	S.Count++
@@ -27,6 +27,11 @@ func (S *WeightedRoundRobinScheduler) Delegate(r *http.Request) *http.Response {
 		server = S.WeightedMap[num]
 		S.Count++
 	}
+	return server
+}
+
+func (S *WeightedRoundRobinScheduler) Delegate(r *http.Request) *http.Response {
+	server := S.changeServer()
 	res := SendRequest(server, r)
 	return res
 }
